@@ -36,6 +36,7 @@ def download_category_tags(
     request_url = "https://danbooru.donmai.us/tags.json"
 
     tags = set()
+    tags_json = []
 
     while True:
         response = requests.get(
@@ -44,6 +45,15 @@ def download_category_tags(
         )
 
         response_json = response.json()
+
+        # Filter tags by minimum_post_count
+        response_json_filtered = [
+            tag_json
+            for tag_json in response_json
+            if tag_json["post_count"] >= minimum_post_count
+        ]
+        # Append json data to tags_json
+        tags_json.extend(response_json_filtered)
 
         response_tags = [
             tag_json["name"]
@@ -71,7 +81,7 @@ def download_category_tags(
         else:
             parameters["page"] += 1
 
-    return tags
+    return tags, tags_json
 
 
 def download_tags(
@@ -104,31 +114,42 @@ def download_tags(
             "category_name": "General",
             "category": "general",
             "path": os.path.join(project_path, "tags-general.txt"),
+            "json_path": os.path.join(project_path, "tags-general.json"),
         },
         # {
         #    'category_name': 'Artist',
         #    'category': 'artist',
         #    'path': os.path.join(path, 'tags-artist.txt'),
+        #    'json_path': os.path.join(path, 'tags-artist.json'),
         # },
         # {
         #    'category_name': 'Copyright',
         #    'category': 'copyright',
         #    'path': os.path.join(path, 'tags-copyright.txt'),
+        #    'json_path': os.path.join(path, 'tags-copyright.json'),
         # },
         {
             "category_name": "Character",
             "category": "character",
             "path": os.path.join(project_path, "tags-character.txt"),
+            "json_path": os.path.join(project_path, "tags-character.json"),
         },
     ]
 
     all_tags_path = os.path.join(project_path, "tags.txt")
+    all_tags_json_path = os.path.join(project_path, "tags.json")
 
     if not is_overwrite and os.path.exists(all_tags_path):
         raise Exception(f"Tags file is already exists : {all_tags_path}")
 
+    if not is_overwrite and os.path.exists(all_tags_json_path):
+        raise Exception(f"Tags json file is already exists : {all_tags_json_path}")
+
     dd.io.try_create_directory(os.path.dirname(all_tags_path))
+    dd.io.try_create_directory(os.path.dirname(all_tags_json_path))
     dd.io.serialize_as_json(log, os.path.join(project_path, "tags_log.json"))
+
+    all_tags_json = []
 
     categories_for_web = []
     categories_for_web_path = os.path.join(project_path, "categories.json")
@@ -140,11 +161,14 @@ def download_tags(
         for category_definition in category_definitions:
             category = category_definition["category"]
             category_tags_path = category_definition["path"]
+            category_tags_json_path = category_definition["json_path"]
 
             print(f"{category} tags are downloading ...")
-            tags = download_category_tags(
+            tags, tags_json = download_category_tags(
                 category, minimum_post_count, limit, username, api_key
             )
+
+            all_tags_json.extend(tags_json)
 
             tags = dd.extra.natural_sorted(tags)
             tag_count = len(tags)
@@ -158,6 +182,8 @@ def download_tags(
                 for tag in tags:
                     category_tags_stream.write(f"{tag}\n")
                     all_tags_stream.write(f"{tag}\n")
+
+            dd.io.serialize_as_json(tags_json, category_tags_json_path)
 
             categories_for_web.append(
                 {
@@ -174,6 +200,7 @@ def download_tags(
 
         categories_for_web.append({"name": "System", "start_index": total_tags_count})
 
+    dd.io.serialize_as_json(all_tags_json, all_tags_json_path)
     dd.io.serialize_as_json(categories_for_web, categories_for_web_path)
 
     print(f"Total {total_tags_count} tags are downloaded.")

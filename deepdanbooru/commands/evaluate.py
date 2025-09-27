@@ -50,6 +50,7 @@ def evaluate(
     compile_model,
     allow_folder,
     save_txt,
+    save_json,
     folder_filters,
     verbose,
 ):
@@ -97,10 +98,17 @@ def evaluate(
     for image_path in target_image_paths:
         print(f"Tags of {image_path}:") #yup!
         if save_txt: tag_list = []
+        if save_json: tags_json = {}
         for tag, score in evaluate_image(image_path, model, tags, threshold):
             print(f"({score:05.3f}) {tag}")
             if save_txt: tag_list.append(tag)
+            if save_json: tags_json[tag] = float(score)
         if save_txt:
             txt_file_path = str(os.path.splitext(image_path)[0]) + ".txt"
             save_txt_file(txt_file_path, tag_list)
+        if save_json:
+            # Sort tags by score in descending order
+            tags_json = dict(sorted(tags_json.items(), key=lambda item: item[1], reverse=True))
+            json_file_path = str(os.path.splitext(image_path)[0]) + ".json"
+            dd.io.serialize_as_json(tags_json, json_file_path)
         print()

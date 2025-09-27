@@ -137,10 +137,14 @@ def download_tags(
     ]
 
     all_tags_path = os.path.join(project_path, "tags.txt")
+    all_tags_sorted_by_count_path = os.path.join(project_path, "tags_sorted_by_count.txt")
     all_tags_json_path = os.path.join(project_path, "tags.json")
 
     if not is_overwrite and os.path.exists(all_tags_path):
         raise Exception(f"Tags file is already exists : {all_tags_path}")
+
+    if not is_overwrite and os.path.exists(all_tags_sorted_by_count_path):
+        raise Exception(f"Tags sorted by count file is already exists : {all_tags_sorted_by_count_path}")
 
     if not is_overwrite and os.path.exists(all_tags_json_path):
         raise Exception(f"Tags json file is already exists : {all_tags_json_path}")
@@ -199,6 +203,13 @@ def download_tags(
             all_tags_stream.write(f"{tag}\n")
 
         categories_for_web.append({"name": "System", "start_index": total_tags_count})
+
+    with open(all_tags_sorted_by_count_path, "w") as all_tags_sorted_by_count_stream:
+        all_tags_sorted_by_count = sorted(
+            all_tags_json, key=lambda tag: tag["post_count"], reverse=True
+        )
+        for tag in all_tags_sorted_by_count:
+            all_tags_sorted_by_count_stream.write(f"{tag['name']}\n")
 
     dd.io.serialize_as_json(all_tags_json, all_tags_json_path)
     dd.io.serialize_as_json(categories_for_web, categories_for_web_path)

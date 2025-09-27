@@ -7,13 +7,13 @@ import deepdanbooru as dd
 
 
 def download_category_tags(
-    category,
-    minimum_post_count,
-    limit,
-    username,
-    api_key,
-    page_size=1000,
-    order="count",
+        category,
+        minimum_post_count,
+        limit,
+        username,
+        api_key,
+        page_size=1000,
+        order="count",
 ):
     category_to_index = {"general": 0, "artist": 1, "copyright": 3, "character": 4}
 
@@ -47,30 +47,24 @@ def download_category_tags(
         response_json = response.json()
 
         # Filter tags by minimum_post_count
-        response_json_filtered = [
+        tags_json_filtered = [
             tag_json
             for tag_json in response_json
             if tag_json["post_count"] >= minimum_post_count
         ]
-        # Append json data to tags_json
-        tags_json.extend(response_json_filtered)
 
-        response_tags = [
-            tag_json["name"]
-            for tag_json in response_json
-            if tag_json["post_count"] >= minimum_post_count
-        ]
-
-        if not response_tags:
+        if not tags_json_filtered:
             break
 
         is_full = False
 
-        for tag in response_tags:
-            if tag in gold_only_tags:
+        for tag_json in tags_json_filtered:
+            tag = tag_json["name"]
+            if tag in gold_only_tags or tag in tags:
                 continue
 
             tags.add(tag)
+            tags_json.append(tag_json)
 
             if len(tags) >= limit:
                 is_full = True
@@ -85,7 +79,7 @@ def download_category_tags(
 
 
 def download_tags(
-    project_path, limit, minimum_post_count, is_overwrite, username, api_key
+        project_path, limit, minimum_post_count, is_overwrite, username, api_key
 ):
     print(
         f"Start downloading tags ... (limit:{limit}, minimum_post_count:{minimum_post_count})"
@@ -204,12 +198,13 @@ def download_tags(
 
         categories_for_web.append({"name": "System", "start_index": total_tags_count})
 
+    all_tags_json = sorted(all_tags_json, key=lambda tag: tag["post_count"], reverse=True)
+
     with open(all_tags_sorted_by_count_path, "w") as all_tags_sorted_by_count_stream:
-        all_tags_sorted_by_count = sorted(
-            all_tags_json, key=lambda tag: tag["post_count"], reverse=True
-        )
-        for tag in all_tags_sorted_by_count:
-            all_tags_sorted_by_count_stream.write(f"{tag['name']}\n")
+        for tag_json in all_tags_json:
+            all_tags_sorted_by_count_stream.write(f"{tag_json['name']}\n")
+        for tag in system_tags:
+            all_tags_sorted_by_count_stream.write(f"{tag}\n")
 
     dd.io.serialize_as_json(all_tags_json, all_tags_json_path)
     dd.io.serialize_as_json(categories_for_web, categories_for_web_path)
